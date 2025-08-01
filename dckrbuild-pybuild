@@ -43,7 +43,7 @@ vdist = VDISTS[dist]
 arch = 'amd64'
 tag = f"build-tmp:{pkg}-{vdist}"
 
-version = dulwich.porcelain.describe('.')
+version = dulwich.porcelain.describe('.').replace('_', '~').replace('%', ':')
 if version[:1] == 'v':
     version = version[1:]
 
@@ -104,8 +104,9 @@ def export_submodules(dest, ref, repo):
 
 
 def export_pristine_tar(dest):
+    v = version.split(':', 1)[1] if ':' in version else version
     for t in [x[len(b'upstream/'):].decode('utf-8') for x in dulwich.porcelain.tag_list('.') if x.startswith(b'upstream/')]:
-        if not version.startswith(t + '-'):
+        if not v.startswith(t + '-'):
             continue
         if subprocess.run(('pristine-tar', 'checkout', f'{dest}/../{pkg}_{t}.orig.tar.gz')).returncode:
             raise RuntimeError("pristine-tar failed")
