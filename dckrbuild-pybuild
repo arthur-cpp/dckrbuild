@@ -30,6 +30,7 @@ DISTS = {
     'ubuntu22.04': 'jammy',
     'ubuntu20.04': 'focal',
     'ubuntu18.04': 'bionic',
+    'debian13': 'trixie',
     'debian12': 'bookworm',
     'debian11': 'bullseye',
     'debian10': 'buster',
