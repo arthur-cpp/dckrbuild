@@ -65,6 +65,12 @@ for k in args.key:
     fp.write(f'COPY {k} /etc/apt/trusted.gpg.d/{k}\n')
 
 fp.write('''
+RUN <<EOF
+cat > /etc/dpkg/dpkg.cfg.d/01-nodoc << EOF
+path-exclude /usr/share/doc/*
+path-exclude /usr/share/info/*
+path-exclude /usr/share/man/*
+EOF
 RUN apt update
 RUN apt install --yes --no-install-recommends build-essential fakeroot ccache
 ''')
