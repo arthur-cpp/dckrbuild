@@ -52,7 +52,7 @@ There are two scripts that can be used inside buildhost: `dckrbuild-print-deps` 
 ```
 # Install dependencies
 apt update
-apt satisfy `dckrbuild-print-deps`
+apt satisfy --yes `dckrbuild-print-deps`
 
 # Bump version
 dckrbuild-version-bump
@@ -60,3 +60,6 @@ dckrbuild-version-bump
 # Build binary package
 dpkg-buildpackage --no-sign -b -j4
 ```
+
+If you are using `reprepro` without support of `ddeb` files (debuginfo packages produced in Ubuntu
+bulds) `dckrbuild-copy-result` script can be used to rename them.
