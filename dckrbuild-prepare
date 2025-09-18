@@ -20,70 +20,30 @@ my $dist = $ARGV[0] || "ubuntu20.04";
 
 my $control = Dpkg::Control::Info->new();
 
-my $dir = File::Temp->newdir();
-
 sub get_build_deps {
-	my $control = $_[0];
 	my $fields = $_[0]->get_source();
-	my $bd_indep; 
-	my $bd_arch;
 	my %options = (reduce_restrictions => 1);
-	if (exists $fields->{'Build-Depends-Arch'}) {
-		$bd_arch = deps_parse($fields->{'Build-Depends-Arch'}, %options);
-	}
-	if (exists $fields->{'Build-Depends-Indep'}) {
-		$bd_indep = deps_parse($fields->{'Build-Depends-Indep'}, %options);
-	}
-	return deps_concat(deps_parse($fields->{'Build-Depends'}, %options), $bd_arch, $bd_indep);
+	return deps_concat(
+		deps_parse($fields->{'Build-Depends'}, %options),
+		deps_parse($fields->{'Build-Depends-Arch'} || '', %options) || undef,
+		deps_parse($fields->{'Build-Depends-Indep'} || '', %options) || undef,
+	);
 }
 
 my $build_deps = get_build_deps($control);
-#my $build_conflicts = $control->get_source->{'Build-Conflicts'} || '';
 
-mkdir "$dir/build-depends" or die("Failed to create $dir/build-depends");
-mkdir "$dir/build-depends/DEBIAN" or die("Failed to create $dir/build-depends/DEBIAN");
-
-open(my $pkg, '>', "$dir/build-depends/DEBIAN/control");
-print $pkg "Package: build-depends
-Version: 1.0
-Architecture: all
-Maintainer: Dummy Package Generator <dummy\@package.generator>
-Installed-Size: 0
-Section: devel
-Priority: optional
-Depends: ${build_deps}
-Description: Build dependencies
-";
-close($pkg);
-system("dpkg-deb -b $dir/build-depends $dir/build-depends_1.0_all.deb") and die("Failed to build dummy package");
-
-open(my $fh, '>', "$dir/prepare.sh");
-print $fh "
-export DEBIAN_FRONTEND=noninteractive;
-
-apt update
-dpkg -i build-depends_1.0_all.deb || :
-#apt --fix-broken install --yes --no-install-recommends
-apt -o Debug::pkgProblemResolver=yes --fix-broken install --yes --no-install-recommends
-test \"`dpkg-query -W -f '\${db:Status-Status}' build-depends`\" = 'installed'
-#apt --yes --no-install-recommends satisfy '${build_deps}'
-";
-close($fh);
-
-open($fh, '>', "$dir/Dockerfile.prepare");
+my $fh = File::Temp->new();
 print $fh "FROM build${buildtype}:${dist}
 ENV DEBIAN_FRONTEND=noninteractive;
 
 RUN apt update
-COPY build-depends_1.0_all.deb .
-COPY prepare.sh prepare.sh
-RUN sh prepare.sh
+RUN apt satisfy --yes '$build_deps'
 ";
 close($fh);
 
 if ($inplace == 1) {
-	system("cd $dir && sh $dir/prepare.sh") and die("Failed to install dependencies");
+	system("apt update && apt satisfy --yes '$build_deps'") and die("Failed to install dependencies");
 } else {
 	my $tag = "build-tmp:" . $control->get_source->{'Source'} . "-${dist}";
-	system("timeout 600 docker build --no-cache --network host --tag ${tag} --file $dir/Dockerfile.prepare $dir") and die("Failed to prepare build image");
+	system("timeout 600 docker build --no-cache --network host --tag ${tag} --file $fh .") and die("Failed to prepare build image");
 }
