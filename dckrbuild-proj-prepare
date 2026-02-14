@@ -1,0 +1,12 @@
+#!/bin/bash
+DBUILD_ROOT="$(dirname "$(readlink -f "$0")")"
+DISTS=$(cat "$DBUILD_ROOT/config/dists.conf")
+
+echo "* Preparing Project Dependencies"
+
+for DIST in $DISTS; do
+    echo ">>> Preparing $DIST..."
+    "$DBUILD_ROOT/core/dckrbuild-prepare" "$DIST" || { echo "!!! Preparation failed for $DIST"; exit 1; }
+done
+
+echo "* All dependencies for all distros are prepared!"

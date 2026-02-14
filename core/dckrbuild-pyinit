@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+# vim: sts=4 sw=4 et
+
+import argparse
+import os
+import sys
+import yaml
+from pathlib import Path
+
+parser = argparse.ArgumentParser(description="Init docker image")
+parser.add_argument("dist", type=str, default='ubuntu20.04', help="Base distrubtion")
+parser.add_argument("-p", "--prefix", type=str, default='build', help="Target image prefix")
+parser.add_argument("-k", "--key", type=str, action='append', default=[], help="List of keys")
+parser.add_argument("-r", "--repo", type=str, action='append', default=[], help="List of repositories")
+parser.add_argument("-c", "--config", type=str, help="Configuration file")
+
+args = parser.parse_args()
+
+# Determine the base directory for the build context.
+# If config is not specified, use the current directory.
+build_ctx = Path.cwd()
+
+if args.config:
+    config_path = Path(args.config).resolve()
+    build_ctx = config_path.parent
+    
+    with open(config_path, 'r') as f:
+        cfg = yaml.safe_load(f)
+    
+    if args.prefix == 'build':
+        args.prefix = cfg.get('prefix', args.prefix)
+    
+    # Add keys and repositories from the config file
+    args.key += cfg.get('key', [])
+    args.repo += cfg.get('repo', [])
+
+CODENAME = {
+    'ubuntu24.04': 'noble',
+    'ubuntu22.04': 'jammy',
+    'ubuntu20.04': 'focal',
+    'ubuntu18.04': 'bionic',
+    'debian13': 'trixie',
+    'debian12': 'bookworm',
+    'debian11': 'bullseye',
+    'debian10': 'buster',
+}
+
+DISTS = {}
+DISTS.update([(k, k) for k, v in CODENAME.items()])
+DISTS.update([(v, k) for k, v in CODENAME.items()])
+
+def dist2image(d):
+    d = DISTS.get(d, d)
+    if d.startswith('debian'):
+        return 'debian:' + d[len('debian'):]
+    elif d.startswith('ubuntu'):
+        return 'ubuntu:' + d[len('ubuntu'):]
+    return d
+
+if args.dist not in DISTS:
+    print(f"Error: Unknown distribution {args.dist}")
+    sys.exit(1)
+
+dist = DISTS[args.dist]
+image = dist2image(dist)
+codename = CODENAME[dist]
+
+# Generate files in the context directory (where keys are located)
+dockerfile_path = build_ctx / 'Dockerfile.init'
+list_path = build_ctx / 'local.list'
+
+with open(dockerfile_path, 'w') as fp:
+    fp.write(f'FROM {image}\n\n')
+    fp.write('ENV DEBIAN_FRONTEND=noninteractive\n')
+
+    if args.repo:
+        with open(list_path, 'w') as lfp:
+            for r in args.repo:
+                lfp.write(r.format(dist=dist, codename=codename) + '\n')
+        fp.write('COPY local.list /etc/apt/sources.list.d/local.list\n')
+
+    for k in args.key:
+        # Use only the filename as Docker looks for it in the context root
+        key_filename = Path(k).name
+        fp.write(f'COPY {key_filename} /etc/apt/trusted.gpg.d/{key_filename}\n')
+
+    fp.write('''
+RUN <<EOF
+cat > /etc/dpkg/dpkg.cfg.d/01-nodoc << 'EOF2'
+path-exclude /usr/share/doc/*
+path-exclude /usr/share/info/*
+path-exclude /usr/share/man/*
+EOF2
+apt-get update
+apt-get install --yes --no-install-recommends build-essential fakeroot ccache
+EOF
+''')
+
+# Switch to the directory containing Dockerfile.init, local.list, and .gpg keys
+os.chdir(build_ctx)
+
+# Form the command for execution
+cmd = [
+    'docker', 'build', 
+    '--network', 'host', 
+    '--tag', f'{args.prefix}:{dist}', 
+    '--file', 'Dockerfile.init', 
+    '.'
+]
+
+os.execvp('docker', cmd)

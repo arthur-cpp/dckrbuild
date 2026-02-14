@@ -1,0 +1,53 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use Dpkg::Control::Info;
+use Dpkg::Deps;
+use File::Temp;
+use Getopt::Long;
+
+my $inplace = 0;
+my $buildtype = '';
+GetOptions('inplace' => \$inplace, 'build-type=s' => \$buildtype);
+
+if ($buildtype ne '') {
+    $buildtype = "-$buildtype";
+}
+
+my $dist = $ARGV[0] || "ubuntu22.04";
+
+my $control = Dpkg::Control::Info->new();
+
+# Extract build dependencies from debian/control
+sub get_build_deps {
+    my $fields = $_[0]->get_source();
+    my %options = (reduce_restrictions => 1);
+    return deps_concat(
+        deps_parse($fields->{'Build-Depends'}, %options),
+        deps_parse($fields->{'Build-Depends-Arch'} || '', %options) || undef,
+        deps_parse($fields->{'Build-Depends-Indep'} || '', %options) || undef,
+    );
+}
+
+my $build_deps = get_build_deps($control);
+
+# Create a temporary Dockerfile to install project dependencies
+my $fh = File::Temp->new();
+print $fh "FROM build${buildtype}:${dist}
+ENV DEBIAN_FRONTEND=noninteractive;
+
+RUN apt update
+RUN apt satisfy --yes '$build_deps'
+";
+close($fh);
+
+if ($inplace == 1) {
+    # Install dependencies directly on the host system
+    system("apt update && apt satisfy --yes '$build_deps'") and die("Failed to install dependencies");
+} else {
+    # Build a project-specific intermediate Docker image
+    my $tag = "build-tmp:" . $control->get_source->{'Source'} . "-${dist}";
+    system("timeout 600 docker build --no-cache --network host --tag ${tag} --file $fh .") and die("Failed to prepare build image");
+}

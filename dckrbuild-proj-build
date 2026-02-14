@@ -1,0 +1,17 @@
+#!/bin/bash
+DBUILD_ROOT="$(dirname "$(readlink -f "$0")")"
+DISTS=$(cat "$DBUILD_ROOT/config/dists.conf")
+
+mkdir -p "$HOME/tmp" "$HOME/.ccache"
+
+echo "* Starting Multi-Distro Build"
+
+for DIST in $DISTS; do
+    echo ">>> Building for $DIST..."
+    "$DBUILD_ROOT/core/dckrbuild-pybuild" "$DIST"
+    if [ $? -ne 0 ]; then
+        echo "!!! Build failed for $DIST"
+    fi
+done
+
+echo "* Multi-build finished. Check 'result' folder."

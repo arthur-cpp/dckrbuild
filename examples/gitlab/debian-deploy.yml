@@ -1,8 +1,0 @@
-deploy-debian:
-  stage: deploy
-  tags: [debian-repository]
-  #environment: debian/unstable
-  script:
-    - echo "Upload to ${DCKRBUILD_DISTRIBUTION} version ${DCKRBUILD_VERSION}"
-    - run-import-script.sh "${DCKRBUILD_DISTRIBUTION}" result/*.changes
-  only: [tags, master]

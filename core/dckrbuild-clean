@@ -1,0 +1,3 @@
+#!/bin/sh
+docker rmi $(docker images 'build-tmp:*' -q) 2>/dev/null
+docker image prune -f

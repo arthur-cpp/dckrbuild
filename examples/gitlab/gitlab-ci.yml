@@ -1,8 +1,0 @@
-variables:
-  GIT_DEPTH: 0 # For repositories with long history between tags
-  GIT_STRATEGY: clone
-include:
-  - project: build/ci
-    file:
-      - debian.yml
-      - debian-deploy.yml
