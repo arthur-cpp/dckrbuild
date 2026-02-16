@@ -90,7 +90,7 @@ def build_command(tmp):
     
     cmd += [f'--user={os.getuid()}:{os.getgid()}']
     cmd += [f"-v{tmp.resolve()}:/build", "-w/build/src"]
-    cmd += [tag, "dpkg-buildpackage", "-rfakeroot", "-uc", "-us", "-sa", f"-j{args.jobs}"]
+    cmd += [tag, "dpkg-buildpackage", "-rfakeroot", "-uc", "-us", "-b", f"-j{args.jobs}"]
     return cmd
 
 def export(dest, ref='HEAD', repo=pathlib.Path('.'), backport=False, submodules=False):
