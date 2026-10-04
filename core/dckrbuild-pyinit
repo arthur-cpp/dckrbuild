@@ -74,6 +74,11 @@ with open(dockerfile_path, 'w') as fp:
     fp.write(f'FROM {image}\n\n')
     fp.write('ENV DEBIAN_FRONTEND=noninteractive\n')
 
+    if any('https://' in r for r in args.repo):
+        # Base images ship without ca-certificates, so an HTTPS repo added below
+        # would fail TLS verification. Install it first via the default (HTTP) repos.
+        fp.write('\nRUN apt-get update && apt-get install --yes --no-install-recommends ca-certificates\n')
+
     if args.repo:
         with open(list_path, 'w') as lfp:
             for r in args.repo:
