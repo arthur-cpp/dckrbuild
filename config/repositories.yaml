@@ -1,7 +1,9 @@
 prefix: build
 key:
   - psha.org.ru.gpg
+  - repo.apm.sh.gpg
 repo:
   - deb http://psha.org.ru/debian {codename} contrib backports
+  - deb https://repo.apm.sh/ {codename} main
 
 # vim: sts=2 sw=2 et

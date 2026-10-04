@@ -6,7 +6,7 @@ echo "* Starting Global OS Initialization"
 
 for DIST in $DISTS; do
     echo ">>> Initializing $DIST..."
-    "$SCRIPT_DIR/core/dckrbuild-pyinit" "$DIST" --config "$SCRIPT_DIR/config/psha.org.ru.yaml" || exit 1
+    "$SCRIPT_DIR/core/dckrbuild-pyinit" "$DIST" --config "$SCRIPT_DIR/config/repositories.yaml" || exit 1
 done
 
 echo "* All OS images are ready!"
